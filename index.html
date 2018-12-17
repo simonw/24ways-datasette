@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<title>24 ways autocomplete search</title>
+<style>
+body {
+  font-family: helvetica, sans-serif;
+  line-height: 1.4;
+}
+</style>
+</head>
+<body>
+<h1>Search 24 ways</h1>
+
+<form>
+  <p><input id="searchbox" type="search" placeholder="Search 24ways" style="width: 60%"></p>
+</form>
+<div id="results"></div>
+
+<script>
+const sql = `select
+  snippet(articles_fts, -1, 'b4de2a49c8', '8c94a2ed4b', '...', 100) as snippet,
+  articles_fts.rank, articles.title, articles.url, articles.author, articles.year
+from articles
+  join articles_fts on articles.rowid = articles_fts.rowid
+where articles_fts match :search || "*"
+  order by rank limit 10`;
+
+const searchbox = document.getElementById("searchbox");
+
+let requestInFlight = null;
+
+searchbox.onkeyup = debounce(() => {
+  const q = searchbox.value;
+  const url = (
+    "https://search-24ways.herokuapp.com/24ways-866073b.json?sql=" +
+    encodeURIComponent(sql) +
+    `&search=${encodeURIComponent(q)}&_shape=array`
+  );
+  let currentRequest = {};
+  requestInFlight = currentRequest;
+  fetch(url).then(r => r.json()).then(d => {
+    if (requestInFlight !== currentRequest) {
+      // Avoid race conditions where a slow request returns
+      // after a faster one.
+      return;
+    }
+    let results = d.map(r => `
+      <div class="result">
+        <h3><a href="${r.url}">${htmlEscape(r.title)}</a></h3>
+        <p><small>${htmlEscape(r.author)} - ${r.year}</small></p>
+        <p>${highlight(r.snippet)}</p>
+      </div>
+    `).join("");
+    document.getElementById("results").innerHTML = results;
+  });
+}, 100);
+
+function debounce(func, wait, immediate) {
+  let timeout;
+  return function() {
+    let context = this, args = arguments;
+    let later = () => {
+      timeout = null;
+      if (!immediate) func.apply(context, args);
+    };
+    let callNow = immediate && !timeout;
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+    if (callNow) func.apply(context, args);
+  };
+};
+
+const highlight = (s) => htmlEscape(s).replace(
+  /b4de2a49c8/g, '<b>'
+).replace(
+  /8c94a2ed4b/g, '</b>'
+);
+
+const htmlEscape = (s) => s.replace(
+  />/g, '&gt;'
+).replace(
+  /</g, '&lt;'
+).replace(
+  /&/g, '&amp;'
+).replace(
+  /"/g, '&quot;'
+).replace(
+  /'/g, '&#039;'
+);
+</script>
+</body>
+</html>
