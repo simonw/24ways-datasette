@@ -79,11 +79,11 @@ const highlight = (s) => htmlEscape(s).replace(
 );
 
 const htmlEscape = (s) => s.replace(
+  /&/g, '&amp;'
+).replace(
   />/g, '&gt;'
 ).replace(
   /</g, '&lt;'
-).replace(
-  /&/g, '&amp;'
 ).replace(
   /"/g, '&quot;'
 ).replace(
